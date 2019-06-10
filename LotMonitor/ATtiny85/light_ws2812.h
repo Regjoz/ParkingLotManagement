@@ -1,3 +1,4 @@
+#pragma once
 /*
  * light weight WS2812 lib include
  *
