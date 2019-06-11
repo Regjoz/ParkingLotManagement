@@ -48,22 +48,5 @@ void set_input_data(uint8_t *packet , struct parking_status_t *parking_info);
 #define False 0
 
 
-enum US_states
-{
-	trigger,
-	waiting_for_echo,
-	echo_received,
-	time_out,
-	
-};
 
-struct US_variables
-{
-	uint16_t trigger_elapsed;
-	uint16_t echo_elapsed;
-	uint16_t echo_total_time;
-	uint16_t echo_buffered_total_time;
-	uint8_t updating_measures; 
-	enum US_states state;
-};
 
