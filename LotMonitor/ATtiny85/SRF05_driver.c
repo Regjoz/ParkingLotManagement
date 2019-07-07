@@ -3,6 +3,27 @@
 
 volatile struct US_struct *US_values;
 
+static inline __attribute__((always_inline)) void us_stop_timer()
+{
+	*US_values->us_timer.timer_handler &= US_values->us_timer.stop_timer;
+	*US_values->us_timer.timer_counter = 0;
+}
+
+static inline __attribute__((always_inline)) void us_update_timer(uint8_t preescaler, uint8_t compare)
+{
+	us_stop_timer();
+	*US_values->us_timer.timer_compare = compare;
+	*US_values->us_timer.timer_handler |= preescaler;
+}
+
+static inline __attribute__((always_inline)) uint8_t us_read_pin()
+{
+	uint8_t pin_status = (*US_values->us_io.us_read_register);
+	pin_status &= (1 << US_values->us_io.us_echo_pin);
+	pin_status = (pin_status == (1 << US_values->us_io.us_echo_pin));
+	return pin_status;
+}
+
 
 void us_state_machine_poll()
 {
@@ -125,23 +146,3 @@ void us_set_pin(volatile uint8_t *Port, volatile uint8_t *DDR, volatile uint8_t 
 }
 
 
-static inline __attribute__((always_inline)) void us_stop_timer()
-{
-	*US_values->us_timer.timer_handler &= US_values->us_timer.stop_timer;
-	*US_values->us_timer.timer_counter = 0;
-}
-
-static inline __attribute__((always_inline)) void us_update_timer(uint8_t preescaler, uint8_t compare)
-{
-	us_stop_timer();
-	*US_values->us_timer.timer_compare = compare;
-	*US_values->us_timer.timer_handler |= preescaler;
-}
-
-static inline __attribute__((always_inline)) uint8_t us_read_pin()
-{
-	uint8_t pin_status = (*US_values->us_io.us_read_register);
-	pin_status &= (1 << US_values->us_io.us_echo_pin);
-	pin_status = (pin_status == (1 << US_values->us_io.us_echo_pin));
-	return pin_status;
-}

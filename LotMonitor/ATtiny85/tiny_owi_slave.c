@@ -8,81 +8,6 @@
 static volatile struct OWI_struct *data_struct;
 static uint8_t sync_disable = False;
 
-void owi_configure_pin(volatile uint8_t *Port,volatile uint8_t *DDR,volatile uint8_t *read_register ,uint8_t Pin)
-{
-	data_struct->owi_io_conf.owi_port = Port;
-	data_struct->owi_io_conf.owi_dir = DDR;
-	data_struct->owi_io_conf.owi_pin = Pin;
-	data_struct->owi_io_conf.owi_read_register = read_register;
-	
-	*data_struct->owi_io_conf.owi_dir &= ~(1 << data_struct->owi_io_conf.owi_pin);  //OWI pin as input, listening to bus
-	
-	data_struct->owi_protocol.owi_is_data_ready = False;
-	data_struct->owi_protocol.owi_read_buffer = 0;
-	data_struct->owi_protocol.owi_read_intermediate_buffer = 0;
-	
-	
-}
-
-void owi_configure_timer(volatile uint8_t *timer_counter,volatile uint8_t *timer_clock,uint8_t timer_stop,uint8_t timer_preescaler)
-{
-	data_struct->owi_timer_conf.owi_timer_counter = timer_counter;
-	data_struct->owi_timer_conf.owi_timer_clock = timer_clock;
-	data_struct->owi_timer_conf.owi_stop_timer = timer_stop;
-	data_struct->owi_timer_conf.owi_timer_preescaler = timer_preescaler;
-	
-	
-}
-
-void owi_time_slot()
-{
-	data_struct->owi_statemachine.STM_trigger = time_slot;
-	owi_stop_timer();
-	owi_state_machine_poll(owi_read_pin());
-
-}
-
-void owi_sample_signal()
-{
-	data_struct->owi_statemachine.STM_trigger = sample_signal;	
-	#ifdef OWI_DEBUG
-	// PINB |= (1<<// PINB0);
-	#endif
-	owi_state_machine_poll(owi_read_pin());
-		#ifdef OWI_DEBUG
-		// PINB |= (1<<// PINB0);
-		#endif
-}
-
-void owi_new_bit()
-{
-	data_struct->owi_statemachine.STM_trigger = new_bit;
-	if (sync_disable == False)
-	{
-		owi_stop_timer(); //synchronization
-		owi_start_timer();
-	}
-	#ifdef OWI_DEBUG
-		// PINB |= (1<<// PINB1);
-	#endif
-	owi_state_machine_poll(False);
-		#ifdef OWI_DEBUG
-		// PINB |= (1<<// PINB1);
-		#endif
-}
-
-void owi_initialize_state_machine()
-{
-	data_struct->owi_statemachine.STM_states = start;
-	data_struct->owi_statemachine.STM_trigger = startup;
-	owi_state_machine_poll(True);
-}
-
-void set_owi_struct(volatile struct OWI_struct *data_struct_set)
-{
-	data_struct = data_struct_set;
-}
-
 static inline __attribute__((always_inline)) void owi_stop_timer()
 {
 	*data_struct->owi_timer_conf.owi_timer_clock &= data_struct->owi_timer_conf.owi_stop_timer; //syncronize timer
@@ -99,9 +24,6 @@ static inline __attribute__((always_inline)) uint8_t owi_read_pin()
 	uint8_t pin_status = (*data_struct->owi_io_conf.owi_read_register);
 	pin_status &= (1 << data_struct->owi_io_conf.owi_pin);
 	pin_status = (pin_status == (1 << data_struct->owi_io_conf.owi_pin));
-	#ifdef OWI_DEBUG
-	//// PINB |= (pin_status<<// PINB3);
-	#endif
 	return pin_status;
 }
 
@@ -122,32 +44,7 @@ static inline __attribute__((always_inline)) void owi_clean_address_counter()
 	data_struct->owi_protocol.owi_address_byte_counter = sizeof(data_struct->owi_protocol.owi_address_in)-1;
 }
 
-uint8_t owi_is_data_ready()
-{
-	return data_struct->owi_protocol.owi_is_data_ready;
-}
-
-uint8_t owi_get_data()
-{
-	data_struct->owi_protocol.owi_is_data_ready = False;
-	return data_struct->owi_protocol.owi_read_buffer;
-}
-
-void owi_set_data(uint8_t data)
-{
-	data_struct->owi_statemachine.STM_states = write;
-	data_struct->owi_protocol.owi_write_data = data;
-	data_struct->owi_protocol.owi_is_data_write = False;
-}
-
-uint8_t owi_is_data_set()
-{
-	return data_struct->owi_protocol.owi_is_data_write;
-}
-
-
-
-uint8_t owi_fill_intermediate_buffer(uint8_t pin_status)
+static uint8_t owi_fill_intermediate_buffer(uint8_t pin_status)
 {
 	uint8_t is_intermediate_buffer_full = False;
 	
@@ -220,13 +117,6 @@ static void owi_state_machine_poll(uint8_t pin_status)
 			owi_clean_address_counter();
 			*data_struct->owi_io_conf.owi_dir &= ~(1 << data_struct->owi_io_conf.owi_pin);  //OWI pin as input, listening to bus
 			data_struct->owi_protocol.owi_is_data_write = True;
-			#ifdef OWI_DEBUG
-			// DDRB |= ((1<<// PINB0) | (1<<// PINB1) | (1<<// PINB3) | (1<<// PINB4));
-			#endif
-			
-			//PCMSK |= (1 << data_struct->owi_io_conf.owi_pin); //only react in owi pin
-			
-			
 			
 			switch (data_struct->owi_statemachine.STM_trigger)
 			{
@@ -337,8 +227,6 @@ static void owi_state_machine_poll(uint8_t pin_status)
 				switch(data_struct->owi_protocol.ROM_CMD)
 				{
 					case match_rom:
-					// PINB |= (1<<// PINB3);
-					// PINB |= (1<<// PINB3);
 						data_struct->owi_statemachine.STM_states = rom_address; //receive address
 					break;
 						
@@ -375,10 +263,7 @@ static void owi_state_machine_poll(uint8_t pin_status)
 
 					if (data_struct->owi_protocol.owi_address == data_struct->owi_protocol.owi_address_in)
 					{
-						// PINB |= (1<<// PINB3);
-						// PINB |= (1<<// PINB3);
 						data_struct->owi_statemachine.STM_states = read;
-
 					}
 					else
 					{
@@ -480,3 +365,108 @@ static void owi_state_machine_poll(uint8_t pin_status)
 	}
 	
 }
+
+
+void owi_configure_pin(volatile uint8_t *Port,volatile uint8_t *DDR,volatile uint8_t *read_register ,uint8_t Pin)
+{
+	data_struct->owi_io_conf.owi_port = Port;
+	data_struct->owi_io_conf.owi_dir = DDR;
+	data_struct->owi_io_conf.owi_pin = Pin;
+	data_struct->owi_io_conf.owi_read_register = read_register;
+	
+	*data_struct->owi_io_conf.owi_dir &= ~(1 << data_struct->owi_io_conf.owi_pin);  //OWI pin as input, listening to bus
+	
+	data_struct->owi_protocol.owi_is_data_ready = False;
+	data_struct->owi_protocol.owi_read_buffer = 0;
+	data_struct->owi_protocol.owi_read_intermediate_buffer = 0;
+	
+	
+}
+
+void owi_configure_timer(volatile uint8_t *timer_counter,volatile uint8_t *timer_clock,uint8_t timer_stop,uint8_t timer_preescaler)
+{
+	data_struct->owi_timer_conf.owi_timer_counter = timer_counter;
+	data_struct->owi_timer_conf.owi_timer_clock = timer_clock;
+	data_struct->owi_timer_conf.owi_stop_timer = timer_stop;
+	data_struct->owi_timer_conf.owi_timer_preescaler = timer_preescaler;
+	
+	
+}
+
+void owi_time_slot()
+{
+	data_struct->owi_statemachine.STM_trigger = time_slot;
+	owi_stop_timer();
+	owi_state_machine_poll(owi_read_pin());
+
+}
+
+void owi_sample_signal()
+{
+	data_struct->owi_statemachine.STM_trigger = sample_signal;	
+	#ifdef OWI_DEBUG
+	// PINB |= (1<<// PINB0);
+	#endif
+	owi_state_machine_poll(owi_read_pin());
+		#ifdef OWI_DEBUG
+		// PINB |= (1<<// PINB0);
+		#endif
+}
+
+void owi_new_bit()
+{
+	data_struct->owi_statemachine.STM_trigger = new_bit;
+	if (sync_disable == False)
+	{
+		owi_stop_timer(); //synchronization
+		owi_start_timer();
+	}
+	#ifdef OWI_DEBUG
+		// PINB |= (1<<// PINB1);
+	#endif
+	owi_state_machine_poll(False);
+		#ifdef OWI_DEBUG
+		// PINB |= (1<<// PINB1);
+		#endif
+}
+
+void owi_initialize_state_machine()
+{
+	data_struct->owi_statemachine.STM_states = start;
+	data_struct->owi_statemachine.STM_trigger = startup;
+	owi_state_machine_poll(True);
+}
+
+void set_owi_struct(volatile struct OWI_struct *data_struct_set)
+{
+	data_struct = data_struct_set;
+}
+
+
+
+uint8_t owi_is_data_ready()
+{
+	return data_struct->owi_protocol.owi_is_data_ready;
+}
+
+uint8_t owi_get_data()
+{
+	data_struct->owi_protocol.owi_is_data_ready = False;
+	return data_struct->owi_protocol.owi_read_buffer;
+}
+
+void owi_set_data(uint8_t data)
+{
+	data_struct->owi_statemachine.STM_states = write;
+	data_struct->owi_protocol.owi_write_data = data;
+	data_struct->owi_protocol.owi_is_data_write = False;
+}
+
+uint8_t owi_is_data_set()
+{
+	return data_struct->owi_protocol.owi_is_data_write;
+}
+
+
+
+

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #ifndef True
 #define True 1
 #endif
@@ -61,6 +63,6 @@ void us_initialize_state_machine();
 void us_set_us_struct(volatile struct US_struct *US_data);
 void us_set_timer(volatile uint8_t *timer_handler, volatile uint8_t *timer_counter, volatile uint8_t *timer_compare, uint8_t stop_timer, uint8_t preescaler_low_speed, uint8_t preescaler_high_speed, uint8_t count_value_low_speed, uint8_t count_value_high_speed, uint16_t divider,  uint16_t echo_timeout);
 void us_set_pin(volatile uint8_t *Port, volatile uint8_t *DDR, volatile uint8_t *read_register, uint8_t trigger_pin, uint8_t echo_pin);
-static inline __attribute__((always_inline)) void us_stop_timer();
-static inline __attribute__((always_inline)) void us_update_timer(uint8_t preescaler, uint8_t compare);
-static inline __attribute__((always_inline)) uint8_t us_read_pin();
+//static inline __attribute__((always_inline)) void us_stop_timer();
+//static inline __attribute__((always_inline)) void us_update_timer(uint8_t preescaler, uint8_t compare);
+//static inline __attribute__((always_inline)) uint8_t us_read_pin();

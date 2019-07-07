@@ -2,22 +2,27 @@
 #define F_CPU 16000000UL  // 16MHz for the Attiny85
 #endif
 
+#include "main.h"
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
-#include "light_ws2812.h"  // https://github.com/cpldcpu/light_ws2812
+#include <avr/wdt.h>
+
 #include "SRF05_driver.h"
 #include "tiny_owi_slave.h"
 #include "../common_communication_layer/communication_structs/common_structs.h"
 #include "comunications.h"
-#include "main.h"
+#include "tiny_ws2812.h"
+#include "parking_lot_controller.h"
+
 
 // ######################################### [ Global Defines ] #########################################// 
-#define ONBOARD_LED		PB3
+//#define ONBOARD_LED		PB1
 #define US_ECHO			PB1
 #define US_TRIGGER		PB0
 #define OWI_PIN			PB2
-//      WS2819_DATA   PB4 // See Makefile WS2812_PIN
+#define WS2812_DATA		PB3
 
 
 #define US_INTERRUPT_DIV		10  
@@ -37,9 +42,8 @@
 
 volatile struct US_struct SRF05_struct;
 volatile struct OWI_struct owi_comunication_struct;
-uint8_t write_flag = False;
-
-
+volatile uint32_t WDT_timer_counter = 0;
+struct parking_status_t parking_info;	
 // ######################################### [ ISR definition ] #########################################//  
 
 //---------
@@ -69,37 +73,51 @@ ISR(TIM1_OVF_vect)
 ISR(INT0_vect)
 {
 	owi_new_bit();  //data request /new data in
-	PINB |= (1 << ONBOARD_LED);
 }
+
+//WDT interrupt for timestamp
+ISR(WDT_vect,ISR_NOBLOCK)
+{
+	WDT_timer_counter++;
+	WDTCR |= (1<<WDCE | 1<<WDE);//set WDT as writable, enable it
+	WDTCR |= (1<<WDIE); //activate interrupt
+}
+
+
 
 // ######################################### [ MAIN ] #########################################//  
 
-int main(void) 
+int main(void)
 {
 //----------
 	// ######################################### [ General initialization ] #########################################//  
-	
-	DDRB   |= (1 << ONBOARD_LED);   // set data direction register for ONBOARD_LED as output
-	PORTB &= ~(1 << ONBOARD_LED);
-	//DDRB |= (1<<PINB0); //DEBUG output
 	  
-	struct parking_status_t parking_info;	
+	
 	parking_info.distance = UINT16_MAX;
-	parking_info.status = parking_free;
+	parking_info.real_status = parking_free;
 
 	// ######################################### [ Driver struct initialization ] #########################################//
 	
 	owi_comunication_struct.owi_protocol.owi_address = 1;
 	set_owi_struct(&owi_comunication_struct);
+	
 	struct communication_buffers buffers;
 	set_comunication_buffers(&buffers);
+	
 	us_set_us_struct(&SRF05_struct);
+	
+	struct ws2812_configuration_struct ws2812_struct;
+	ws2812_set_configuration_struct(&ws2812_struct);
+	
 	
 	// ######################################### [ Driver Pin initialization ] #########################################//
 	GIMSK |= (1 << INT0); //OWI pin activate interrupt by INT0 pin
 	MCUCR |= (1<<ISC01); // OWI pin interrupt by falling edge
 	owi_configure_pin(&PORTB, &DDRB, &PINB, OWI_PIN);
+	
 	us_set_pin(&PORTB, &DDRB, &PINB, US_TRIGGER, US_ECHO);
+	
+	ws2812_set_pin(&PORTB, &DDRB, WS2812_DATA);
 	
 	// ######################################### [ Driver Timer initialization ] #########################################//
 	
@@ -116,11 +134,19 @@ int main(void)
 	TCCR1 &= TIM1_NO_CLOCK;		// OWI timer (timer 1) Avoid start clock
 	owi_configure_timer(&TCNT1,&TCCR1,TIM1_NO_CLOCK,TIM1_PREESCALER_8);
 	
+	// ######################################### [ WDT Timer initialization ] #########################################//
+	
+	wdt_reset(); // WDT reset
+	MCUSR = 0x00; // clean interrupt register
+	WDTCR |= (1<<WDCE | 1<<WDE);//set WDT as writable, enable it
+	WDTCR |= (1<<WDIE | WDT_PREESCALER_125ms); //activate interrupt and set new period
+	
 	// ######################################### [ Driver initialization ] #########################################//
 	
 	us_initialize_state_machine();
 	owi_initialize_state_machine();
-  
+	ws2812_write_strip(&Orange,WS2819_STRIPE_LEN,True);
+	
 
 	// ######################################### [ Enable global interrupt ] #########################################//
   
@@ -130,79 +156,50 @@ int main(void)
 
 	while(1)
 	{
-		if (owi_is_data_ready() == True)
-		{	PINB |= (1<<PINB3);
-			PINB |= (1<<PINB3);
-		
-			uint8_t read_data = owi_get_data();
-			uint8_t is_packet_ready = process_data_packet(read_data);
-		
-			if (is_packet_ready == True)
-			{
-					for (int j=0;j<reinterpret_uint16(buffers.decode_buffer+2);j++)
-					{
-						PINB |= (1<<PINB3);
-						PINB |= (1<<PINB3);
-					}
-
-				set_input_data(buffers.decode_buffer,&parking_info);
-			}
-		}
-		else if (write_flag == True)
-		{
-			uint8_t data;
-			if (owi_is_data_set() == True)
-			{
-				if (get_next_byte(&data) == True)
-				{
-						owi_set_data(data);
-				}
-				else
-				{
-					write_flag = False;
-				
-				}
-			}
-		}
+		comunication_poll_data(&set_input_data);
+		parking_info.distance = us_get_distance();
+		ws2812_blink_strip(&Green,&Red,WS2819_STRIPE_LEN,8,True);
+		parking_controller_poll(&parking_info);
+		_delay_ms(50);
 	}
 }
 
-void set_input_data(uint8_t *packet, struct parking_status_t *parking_info)
+void set_input_data(uint8_t *packet, uint8_t *write_flag)
 {
 	//uint8_t CMD = reinterpret_uint8(packet);
 	struct packet_struct_t *data_packet = (struct packet_struct_t *) packet;
 	switch (data_packet->CMD)
 	{
-		case parking_status:
+		case get_parking_info:
 		
-			parking_info->status	= data_packet->packet.parking.status;
-			parking_info->distance	= data_packet->packet.parking.distance;
-		
-		
-	
-			for (int j=0;j<parking_info->distance;j++)
-			{
-				PINB |= (1<<PINB3);
-				PINB |= (1<<PINB3);
-			}
-
+			*write_flag = process_write_packet(&parking_info,sizeof(parking_info));
 				
 		break;
 		
-		case distance:
-			parking_info->distance	= data_packet->packet.distance;
+		case get_distance:
+			*write_flag = process_write_packet(&(parking_info.distance),sizeof(parking_info.distance));
 		 
 		break;
 		
-		case place_status:
+		case get_place_status:
 		
-			//parking_info->status = data_packet->packet.status;
-			parking_info->status = parking_reserved;
-			write_flag = process_write_packet(&(parking_info->status),sizeof(parking_info->status));
+			*write_flag = process_write_packet(&(parking_info.real_status),sizeof(parking_info.real_status));
+		
+		break;
+		
+		case set_parking_status:
+		
+			parking_info.programmed_status = data_packet->packet.programmed_status;
 		
 		break;
 		
 		default:
 		break;
 	}
+}
+
+
+uint32_t get_timestamp()
+{
+	return WDT_timer_counter;
 }

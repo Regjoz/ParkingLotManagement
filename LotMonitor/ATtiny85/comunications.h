@@ -1,5 +1,9 @@
 #pragma once
 
+#include <stdint.h>
+#include "..\common_communication_layer\Cobs\cobs.h"
+#include "..\common_communication_layer\communication_structs\common_structs.h"
+
 #ifndef True
 #define True 1
 #endif
@@ -21,6 +25,7 @@ uint8_t process_data_packet(uint8_t data);
 uint8_t process_write_packet(void *data_tosend, uint8_t size);
 uint8_t get_next_byte(uint8_t *byte);
 void rotate_buffer(uint8_t *buffer,uint8_t size);
+void comunication_poll_data(void (*onData)(uint8_t *buffers, uint8_t *write_Data));
 
 uint8_t		reinterpret_uint8(uint8_t *buffer);
 uint16_t	reinterpret_uint16(uint8_t *buffer);

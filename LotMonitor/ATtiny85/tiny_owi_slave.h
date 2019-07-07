@@ -1,7 +1,14 @@
 #pragma once
 
+#include <stdint.h>
+
+#ifndef True
 #define True 1
+#endif
+
+#ifndef False
 #define False 0
+#endif
 
 #define bit_sizeof(type) (sizeof(type)*8)
 #include <avr/io.h> //DEBUUUUUUG
@@ -88,16 +95,16 @@ void owi_configure_timer(volatile uint8_t *timer_counter,volatile uint8_t *timer
 void owi_time_slot();
 void owi_sample_signal();
 void owi_new_bit();
-static inline __attribute__((always_inline)) void owi_stop_timer();
-static inline __attribute__((always_inline)) void owi_start_timer();
-static inline __attribute__((always_inline)) uint8_t owi_read_pin();
+//static inline __attribute__((always_inline)) void owi_stop_timer();
+//static inline __attribute__((always_inline)) void owi_start_timer();
+//static inline __attribute__((always_inline)) uint8_t owi_read_pin();
 void set_owi_struct(volatile struct OWI_struct *data_struct);
 void owi_initialize_state_machine();
-static void owi_state_machine_poll(uint8_t pin_status);
-static uint8_t owi_fill_intermediate_buffer(uint8_t pin_status);
-static inline __attribute__((always_inline)) void owi_clean_buffer();
-static inline __attribute__((always_inline)) void owi_clean_counter();
-static inline __attribute__((always_inline)) void owi_clean_address_counter();
+//static void owi_state_machine_poll(uint8_t pin_status);
+//static uint8_t owi_fill_intermediate_buffer(uint8_t pin_status);
+//static inline __attribute__((always_inline)) void owi_clean_buffer();
+//static inline __attribute__((always_inline)) void owi_clean_counter();
+//static inline __attribute__((always_inline)) void owi_clean_address_counter();
 uint8_t owi_is_data_ready();
 uint8_t owi_get_data();
 void owi_set_data(uint8_t data);

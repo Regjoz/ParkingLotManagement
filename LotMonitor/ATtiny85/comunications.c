@@ -1,6 +1,7 @@
 #include "comunications.h"
 #include "../common_communication_layer/communication_structs/common_structs.h"
 #include "../common_communication_layer/Cobs/cobs.h"
+#include "tiny_owi_slave.h"
 
 
 
@@ -11,6 +12,8 @@ static struct communication_buffers *internal_buffers;
 static uint8_t encode_size = 0;
 static uint8_t write_size = 0;
 static uint8_t byte_count = 0;
+
+static uint8_t write_flag = False;
 
 void set_comunication_buffers(struct communication_buffers *buffers)
 {
@@ -30,11 +33,6 @@ uint8_t process_data_packet(uint8_t data)
 	{
 		
 		cobs_decode_result cobs_out =  cobs_decode(internal_buffers->decode_buffer,sizeof(internal_buffers->decode_buffer),internal_buffers->encode_buffer,encode_size);
-		for (int j=0;j<cobs_out.status;j++)
-		{
-			PINB |= (1<<PINB3);
-			PINB |= (1<<PINB3);
-		}
 
 		if (cobs_out.status == COBS_DECODE_OK)
 		{
@@ -83,6 +81,36 @@ uint8_t get_next_byte(uint8_t *byte)
 	
 	return is_next_byte_available;
 	
+}
+
+void comunication_poll_data(void (*onData)(uint8_t *buffers, uint8_t *write_Data))
+{
+	if (owi_is_data_ready() == True)
+	{
+		uint8_t read_data = owi_get_data();
+		uint8_t is_packet_ready = process_data_packet(read_data);
+		
+		if (is_packet_ready == True)
+		{
+			onData(internal_buffers->decode_buffer,&write_flag);
+		}
+	}
+	else if (write_flag == True)
+	{
+		uint8_t data;
+		if (owi_is_data_set() == True)
+		{
+			if (get_next_byte(&data) == True)
+			{
+				owi_set_data(data);
+			}
+			else
+			{
+				write_flag = False;
+				
+			}
+		}
+	}
 }
 
 void rotate_buffer(uint8_t *buffer,uint8_t size)

@@ -1,10 +1,13 @@
 #pragma once
 
+#include <stdint.h>
+
 enum __attribute__((packed)) write_command
 {
-	parking_status,
-	distance,
-	place_status,
+	get_parking_info,
+	get_distance,
+	get_place_status,
+	set_parking_status,
 	//include here all the needed commands
 };
 
@@ -19,7 +22,8 @@ enum __attribute__((packed)) parking_state
 
 struct __attribute__((packed)) parking_status_t
 {
-	enum parking_state status;
+	enum parking_state real_status;
+	enum parking_state programmed_status;
 	uint16_t distance;	
 };
 
@@ -29,7 +33,8 @@ struct __attribute__((packed)) parking_status_t
 union __attribute__((packed)) data_packet
 {
 	struct parking_status_t parking;
-	enum parking_state status;
+	enum parking_state real_status;
+	enum parking_state programmed_status;
 	uint16_t distance;
 	//insert here the struct definition
 };
