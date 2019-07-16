@@ -9,6 +9,7 @@
 #include <util/delay.h>
 #include <avr/wdt.h>
 
+
 #include "SRF05_driver.h"
 #include "tiny_owi_slave.h"
 #include "../common_communication_layer/communication_structs/common_structs.h"
@@ -103,6 +104,7 @@ int main(void)
 	
 	struct communication_buffers buffers;
 	set_comunication_buffers(&buffers);
+	set_comunication_timeout(8); //500 ms with 60ms of wdt timeout
 	
 	us_set_us_struct(&SRF05_struct);
 	
@@ -139,7 +141,7 @@ int main(void)
 	wdt_reset(); // WDT reset
 	MCUSR = 0x00; // clean interrupt register
 	WDTCR |= (1<<WDCE | 1<<WDE);//set WDT as writable, enable it
-	WDTCR |= (1<<WDIE | WDT_PREESCALER_125ms); //activate interrupt and set new period
+	WDTCR |= (1<<WDIE | WDT_PREESCALER_60ms); //activate interrupt and set new period
 	
 	// ######################################### [ Driver initialization ] #########################################//
 	
@@ -153,14 +155,15 @@ int main(void)
 	sei();                          
 
 	// ######################################### [ Main loop ] #########################################//
-
 	while(1)
 	{
-		comunication_poll_data(&set_input_data);
 		parking_info.distance = us_get_distance();
-		ws2812_blink_strip(&Green,&Red,WS2819_STRIPE_LEN,8,True);
-		parking_controller_poll(&parking_info);
-		_delay_ms(50);
+		comunication_poll_data(&set_input_data);
+		parking_controller_poll(&parking_info,owi_is_busy());
+		
+
+		
+		
 	}
 }
 

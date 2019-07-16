@@ -10,7 +10,9 @@
 #define False 0
 #endif
 
+#ifndef bit_sizeof
 #define bit_sizeof(type) (sizeof(type) * 8)
+#endif
 
 #define NOP asm volatile("nop")
 
@@ -47,8 +49,8 @@ static const struct ws2812_pixel Purple =	{128, 128, 0};
 
 void ws2812_write_single_pixel(const struct ws2812_pixel *pixel);
 void ws2812_write_strip(const struct ws2812_pixel *pixel_buffer,uint8_t length,uint8_t allTheSame);
-void ws2812_set_pin(const volatile uint8_t *Port,const volatile uint8_t *DDR, uint8_t ws2812_pin);
-void ws2812_set_configuration_struct(const struct ws2812_configuration_struct *configuration);
+void ws2812_set_pin(volatile uint8_t *Port,volatile uint8_t *DDR, uint8_t ws2812_pin);
+void ws2812_set_configuration_struct(struct ws2812_configuration_struct *configuration);
 void ws2812_blink_strip(const struct ws2812_pixel *pixel_bufferA,const struct ws2812_pixel *pixel_bufferB,uint8_t length,uint32_t blink_period,uint8_t allTheSame);
 
 extern uint32_t get_timestamp();

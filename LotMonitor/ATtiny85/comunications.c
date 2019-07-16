@@ -2,7 +2,7 @@
 #include "../common_communication_layer/communication_structs/common_structs.h"
 #include "../common_communication_layer/Cobs/cobs.h"
 #include "tiny_owi_slave.h"
-
+#include <util/crc16.h>
 
 
 
@@ -14,6 +14,14 @@ static uint8_t write_size = 0;
 static uint8_t byte_count = 0;
 
 static uint8_t write_flag = False;
+
+static uint32_t comunication_timeout = 0;
+static uint32_t time_reference = 0;
+
+static void set_new_reference()
+{
+	time_reference = get_timestamp();
+}
 
 void set_comunication_buffers(struct communication_buffers *buffers)
 {
@@ -94,6 +102,7 @@ void comunication_poll_data(void (*onData)(uint8_t *buffers, uint8_t *write_Data
 		{
 			onData(internal_buffers->decode_buffer,&write_flag);
 		}
+		set_new_reference();
 	}
 	else if (write_flag == True)
 	{
@@ -103,6 +112,7 @@ void comunication_poll_data(void (*onData)(uint8_t *buffers, uint8_t *write_Data
 			if (get_next_byte(&data) == True)
 			{
 				owi_set_data(data);
+				set_new_reference();
 			}
 			else
 			{
@@ -110,7 +120,28 @@ void comunication_poll_data(void (*onData)(uint8_t *buffers, uint8_t *write_Data
 				
 			}
 		}
+		
 	}
+	
+	if (owi_is_busy() == True) 
+	{
+		if (get_timestamp() > (comunication_timeout + time_reference))
+		{
+			owi_initialize_state_machine(); //timeout reached
+			frame_start();
+			write_flag = False;
+		}
+	}
+	else
+	{
+		set_new_reference();
+	}
+	
+}
+
+void set_comunication_timeout(uint32_t timeout)
+{
+	comunication_timeout = timeout;
 }
 
 void rotate_buffer(uint8_t *buffer,uint8_t size)
@@ -143,8 +174,6 @@ uint64_t reinterpret_uint64(uint8_t *buffer)
 	uint64_t data = (*((uint64_t *)  buffer));
 	return data;
 }
-
-
 
 
 

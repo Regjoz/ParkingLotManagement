@@ -49,6 +49,7 @@ struct OWI_PROTOCOL_struct
 	//uint8_t owi_write_length;
 	uint8_t owi_is_data_write;
 	uint8_t owi_is_data_ready;
+	uint8_t owi_is_busy;
 	int8_t owi_address_byte_counter;	
 };
 
@@ -106,6 +107,7 @@ void owi_initialize_state_machine();
 //static inline __attribute__((always_inline)) void owi_clean_counter();
 //static inline __attribute__((always_inline)) void owi_clean_address_counter();
 uint8_t owi_is_data_ready();
+uint8_t owi_is_busy();
 uint8_t owi_get_data();
 void owi_set_data(uint8_t data);
 uint8_t owi_is_data_set();

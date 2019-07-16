@@ -37,12 +37,12 @@ static inline __attribute__((always_inline)) void ws2812_zero(void)
 	
 }
 
-void ws2812_set_configuration_struct(const struct ws2812_configuration_struct *configuration)
+void ws2812_set_configuration_struct(struct ws2812_configuration_struct *configuration)
 {
 	ws2812_conf = configuration;
 }
 
-void ws2812_set_pin(const volatile uint8_t *Port,const volatile uint8_t *DDR, uint8_t ws2812_pin)
+void ws2812_set_pin(volatile uint8_t *Port,volatile uint8_t *DDR, uint8_t ws2812_pin)
 {
 	ws2812_conf->ws2812_io_conf.ws2812_dir = DDR;
 	ws2812_conf->ws2812_io_conf.ws2812_pin = ws2812_pin;
@@ -81,6 +81,7 @@ void ws2812_write_strip(const struct ws2812_pixel *pixel_buffer,uint8_t length,u
 		ws2812_write_single_pixel(_pixel);
 	}
 	sei();
+	
 }
 
 void ws2812_blink_strip(const struct ws2812_pixel *pixel_bufferA,const struct ws2812_pixel *pixel_bufferB,uint8_t length,uint32_t blink_period,uint8_t allTheSame)
